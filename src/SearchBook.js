@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import PropTypes from 'prop-types' 
 import escapeRegExp from 'escape-string-regexp'
+import * as BooksAPI from './BooksAPI'
 
 class SearchBook extends React.Component {
 
@@ -11,15 +12,44 @@ class SearchBook extends React.Component {
   }
 
   state = {
-    query:''
+    query:'',
+    apibooks: []
   }
 
   updateQuery = (query) => {
-    this.setState({ query: query })
+    this.setState({ query: query.trim() })
+      if (query !== '') {
+        BooksAPI.search(query).then((apibooks) => {
+          if (typeof apibooks === 'undefined' || apibooks.error) return
+   
+          this.updateApiBookshelfs()
+        
+            this.setState({ apibooks })
+        })
+      }
   }
 
-  clearQuery = () => {
-    this.setState({ query:'' })
+  updateApiBookshelfs() {
+    for (let book of this.props.books) {
+      this.state.apibooks.map(b => {
+       if (book.id === b.id) {
+         b.shelf = book.shelf
+       }
+       return b
+     })
+   }
+  }
+
+  updateShelf = (book, shelf) => {  
+    this.props.onUpdateShelf(book, shelf)
+    this.setState((state) => ({
+      apibooks: state.apibooks.map((b) => (this.updateBookShelfState(b, book, shelf)))      
+    }))    
+  }
+
+  updateBookShelfState = (b, book, shelf) => {
+    if(b.id === book.id) b.shelf = shelf
+    return b
   }
 
   matchQuery(book, query) {
@@ -29,16 +59,7 @@ class SearchBook extends React.Component {
 
   render () {
 
-    const { books, onUpdateShelf } = this.props
-    const { query } = this.state
-
-    let showingBooks
-    if (query) {
-      
-      showingBooks = books.filter((book) => this.matchQuery(book, query))
-    } else {
-      showingBooks = books
-    }
+    const { query, apibooks } = this.state
 
     return (
       <div className="search-books">
@@ -51,18 +72,17 @@ class SearchBook extends React.Component {
             value={query}
             onChange={(event) => this.updateQuery(event.target.value)}
             />
-
           </div>
         </div>
         <div className="search-books-results">
           <ol className="books-grid">
-          {showingBooks.map((book) => (
+          {apibooks.map((book) => (
             <li key={book.id}>
               <div className="book">
                 <div className="book-top">
-                  <div className="book-cover" style={{ width: 128, height: 193, backgroundImage: `url(${book.imageLinks.smallThumbnail})` }}></div>
+                  <div className="book-cover" style={{ width: 128, height: 193, backgroundImage: `url(${book.imageLinks !== undefined? book.imageLinks.thumbnail:''})` }}></div>
                   <div className="book-shelf-changer">
-                    <select value={book.shelf} onChange={(event) => onUpdateShelf(book, event.target.value)}>
+                    <select value={book.shelf !== undefined? book.shelf : 'none'} onChange={(event) => this.updateShelf(book, event.target.value)}>
                       <option value="none" disabled>Move to...</option>
                       <option value="currentlyReading">Currently Reading</option>
                       <option value="wantToRead">Want to Read</option>
