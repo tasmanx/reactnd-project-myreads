@@ -8,7 +8,7 @@ class SearchBook extends React.Component {
 
   static propTypes = {
     books: PropTypes.array.isRequired,
-    onUpdateShelf: PropTypes.func.isRequired
+    updateAllShelfs: PropTypes.func.isRequired
   }
 
   state = {
@@ -20,36 +20,48 @@ class SearchBook extends React.Component {
     this.setState({ query: query.trim() })
       if (query !== '') {
         BooksAPI.search(query).then((apibooks) => {
+
           if (typeof apibooks === 'undefined' || apibooks.error) return
-   
-          this.updateApiBookshelfs()
+
+          for (let book of this.props.books) {
+            apibooks = apibooks.map(b => {
+              if (book.id === b.id) {
+                b.shelf = book.shelf
+              }
+              return b
+            })
+          }
         
-            this.setState({ apibooks })
+          this.setState({ apibooks })
         })
       }
   }
 
-  updateApiBookshelfs() {
-    for (let book of this.props.books) {
-      this.state.apibooks.map(b => {
-       if (book.id === b.id) {
-         b.shelf = book.shelf
-       }
-       return b
-     })
-   }
-  }
-
   updateShelf = (book, shelf) => {  
-    this.props.onUpdateShelf(book, shelf)
-    this.setState((state) => ({
-      apibooks: state.apibooks.map((b) => (this.updateBookShelfState(b, book, shelf)))      
-    }))    
+    BooksAPI.update(book, shelf).then(() => {
+      this.setState((state) => ({
+        apibooks: state.apibooks.map((b) => (this.updateBookShelfState(b, book, shelf)))      
+      }))  
+    }) 
+    this.updateAllShelfs(book)
   }
 
   updateBookShelfState = (b, book, shelf) => {
     if(b.id === book.id) b.shelf = shelf
     return b
+  }
+
+  updateAllShelfs(book) {
+    
+    for (let b of this.props.books) {
+      let isBookInTheShelf = false
+      if (book.id === b.id) {
+        isBookInTheShelf = true
+        break
+      }
+      if (!isBookInTheShelf)
+        this.props.updateAllShelfs()
+    }
   }
 
   matchQuery(book, query) {
